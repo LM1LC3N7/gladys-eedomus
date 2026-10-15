@@ -1,45 +1,76 @@
 // -----------------------------------------------------------------------------
-// Integration configuration.
-//
-// The configuration is filled in by the user in Gladys, from the `config_schema`
-// declared in `gladys-assistant-integration.json`. The SDK fetches it for you
-// (`gladys.getConfig()`) and notifies you of every change through
-// `gladys.onConfigUpdated()`.
-//
-// This module only provides defaults and normalizes the received object, so the
-// rest of the code never has to deal with `undefined`.
+// The configuration of the manifest `config_schema`, normalized.
 // -----------------------------------------------------------------------------
 
-// Defaults: they MUST stay consistent with the `default` values declared in the
-// `config_schema` of the manifest.
-export const DEFAULT_CONFIG = {
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  unit: 'celsius', // 'celsius' | 'fahrenheit'
-  // Seconds between two reads of the polled sensors. Gladys polls at most once
-  // a minute: slower intervals are applied by skipping polls (see
-  // createPoller in src/devices/index.js).
-  poll_frequency: 300,
-  // Reserved key (NOT in config_schema): because the manifest declares both
-  // 'local' and 'cloud' in its `transports` field, Gladys shows a standard
-  // "Prefer the local connection" toggle and sends the user's choice here.
-  // Read-only for the integration; defaults to true.
-  GLADYS_PREFER_LOCAL: true,
+import { POLL_INTERVAL } from './constants.js';
+
+/** Defaults, mirrored by the manifest (checked by test/manifest.test.js). */
+export const DEFAULTS = {
+  box_address: '',
+  api_user: '',
+  api_secret: '',
+  poll_interval: POLL_INTERVAL.default,
 };
 
 /**
- * Merge the user config with the defaults.
- * @param {Record<string, unknown>} raw config returned by the SDK
+ * The local address of the box from what the user typed: "192.168.1.30",
+ * "192.168.1.30:80", "http://eedomus.lan/" or an API URL copied from the
+ * eedomus portal ("http://192.168.1.30/api/get?action=…").
+ * @returns {{ url?: string, host?: string, error?: 'invalid' | 'credentials' }}
+ *   no url: no local address (the cloud only)
  */
+export function parseBoxAddress(raw) {
+  const text = String(raw ?? '').trim();
+  if (text === '') {
+    return {};
+  }
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${text}`;
+  let url;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return { error: 'invalid' };
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    return { error: 'invalid' };
+  }
+  if (url.username || url.password || url.search.includes('api_secret')) {
+    // The API credentials have their own fields (the secret is a secret).
+    return { error: 'credentials' };
+  }
+  if (/(^|\.)eedomus\.com$/i.test(url.hostname)) {
+    // The portal or the cloud API: the local address is the IP of the box.
+    return { error: 'cloud' };
+  }
+  return { url: url.origin, host: url.host };
+}
+
+const bounded = (raw, { min, max, default: fallback }) => {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+};
+
 export function normalizeConfig(raw = {}) {
+  const given = Object.fromEntries(
+    Object.entries(raw ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+  );
+  const c = { ...DEFAULTS, ...given };
+  const box = parseBoxAddress(c.box_address);
+  const apiUser = String(c.api_user ?? '').trim();
+  const apiSecret = String(c.api_secret ?? '').trim();
+  let error = box.error;
+  if (!error && (apiUser === '' || apiSecret === '')) {
+    error = apiUser === '' && apiSecret === '' && !box.url ? 'empty' : 'no-credentials';
+  }
   return {
-    ...DEFAULT_CONFIG,
-    ...raw,
-    // Force the types: config may arrive as strings from a form.
-    latitude: Number(raw.latitude ?? DEFAULT_CONFIG.latitude),
-    longitude: Number(raw.longitude ?? DEFAULT_CONFIG.longitude),
-    poll_frequency: Number(raw.poll_frequency ?? DEFAULT_CONFIG.poll_frequency),
-    // The preference is a boolean; anything but an explicit false means true.
-    GLADYS_PREFER_LOCAL: raw.GLADYS_PREFER_LOCAL !== false,
+    boxUrl: box.url,
+    boxHost: box.host,
+    error,
+    apiUser,
+    apiSecret,
+    // Reserved key of the "Prefer the local connection" toggle (both
+    // transports declared): anything but an explicit false means true.
+    preferLocal: raw?.GLADYS_PREFER_LOCAL !== false,
+    pollInterval: bounded(c.poll_interval, POLL_INTERVAL),
   };
 }

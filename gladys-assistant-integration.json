@@ -1,177 +1,96 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "eedomus bridge",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "The peripherals of your eedomus box in Gladys: lights, shutters, heating, sensors, meters…",
+    "fr": "Les périphériques de votre box eedomus dans Gladys : lumières, volets, chauffage, capteurs…"
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-eedomus:0.1.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-eedomus/main/cover.png",
+  "categories": ["protocols", "lighting", "climate"],
   "transports": ["local", "cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your eedomus peripherals in Gladys",
+        "fr": "Vos périphériques eedomus dans Gladys"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Every peripheral of your eedomus box is offered in the Discovery tab: lamps and dimmers, plugs, shutters, pilot wire heating, setpoints, motion, door, smoke and flood sensors, temperature, humidity, luminosity, power and energy, remotes. The values follow the box every few seconds and Gladys controls the peripherals through the box, which keeps running: migrate at your pace, or use both side by side. The integration talks to the box on your network (its local API), and through the eedomus cloud when the box does not answer. Unofficial, not affiliated with Connected Object.",
+        "fr": "Chaque périphérique de votre box eedomus est proposé dans l'onglet Découverte : lampes et variateurs, prises, volets, chauffage fil pilote, consignes, détecteurs de mouvement, d'ouverture, de fumée et d'inondation, température, humidité, luminosité, puissance et énergie, télécommandes. Les valeurs suivent la box toutes les quelques secondes et Gladys pilote les périphériques à travers la box, qui continue de tourner : migrez à votre rythme, ou utilisez les deux côte à côte. L'intégration parle à la box sur votre réseau (son API locale), et via le cloud eedomus quand la box ne répond pas. Non officiel, sans lien avec Connected Object."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/LM1LC3N7/gladys-eedomus/blob/main/docs/fr.md",
+          "label": { "en": "Guide (French)", "fr": "Guide (français)" }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-eedomus/blob/main/docs/en.md",
+          "label": { "en": "Guide (English)", "fr": "Guide (anglais)" }
+        },
+        {
+          "url": "https://doc.eedomus.com/view/API_eedomus",
+          "label": { "en": "The eedomus API (French)", "fr": "L'API eedomus" }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "box_address",
+      "type": "string",
+      "label": {
+        "en": "IP address of the eedomus box",
+        "fr": "Adresse IP de la box eedomus"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
       "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+        "en": "Its address on your network, seen from the Gladys machine (your internet router lists the devices of your network). Leave empty to go through the eedomus cloud only.",
+        "fr": "Son adresse sur votre réseau, vue depuis la machine Gladys (votre box internet liste les appareils de votre réseau). Laissez vide pour passer uniquement par le cloud eedomus."
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "placeholder": { "en": "192.168.1.30", "fr": "192.168.1.30" },
+      "required": false
     },
     {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
-      "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
-    },
-    {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "api_user",
+      "type": "string",
+      "label": { "en": "API user", "fr": "Utilisateur d'API" },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "On secure.eedomus.com: Configuration → Mon compte → Identifiants API. eedomus sends them by email. They are not the ones of your eedomus account.",
+        "fr": "Sur secure.eedomus.com : Configuration → Mon compte → Identifiants API. eedomus les envoie par e-mail. Ce ne sont pas ceux de votre compte eedomus."
+      },
+      "required": true
+    },
+    {
+      "key": "api_secret",
+      "type": "secret",
+      "label": { "en": "API secret", "fr": "Secret d'API" },
+      "required": true
+    },
+    {
+      "key": "poll_interval",
+      "type": "number",
+      "label": {
+        "en": "Interval between two reads of the values (s)",
+        "fr": "Intervalle entre deux lectures des valeurs (s)"
+      },
+      "description": {
+        "en": "Gladys reads the values of the devices you added at this pace, in one request to the box. Through the eedomus cloud, at most once a minute.",
+        "fr": "Gladys lit les valeurs des appareils ajoutés à ce rythme, en une requête à la box. Via le cloud eedomus, au plus une fois par minute."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": 15,
+      "min": 5,
+      "max": 300
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
-      },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
-      ]
-    }
-  ],
-  "scene_actions": [
-    {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
-      },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "key": "test_connection",
+      "label": { "en": "Test the connection", "fr": "Tester la connexion" },
+      "timeout_seconds": 90
     }
   ]
 }

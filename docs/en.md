@@ -1,61 +1,121 @@
-# Demo Devices Template
+# eedomus bridge
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+This integration connects Gladys to **your eedomus box** and offers every
+eedomus peripheral in the **Discovery** tab of Gladys: lamps, plugs, shutters,
+pilot wire heaters, setpoints, sensors, meters, remotes. Once a device is
+added, its values follow the box every few seconds, and Gladys controls it
+**through the box**, which keeps running with its Z-Wave, Zigbee, RF modules
+and its plugins. Move to Gladys at your own pace, room after room, or use both
+side by side. Unofficial, not affiliated with Connected Object (the maker of
+eedomus).
+
+> **Development version (0.1).** Built from the eedomus API documentation and
+> tested on a simulated box, **not yet on a real eedomus**. Your feedback is
+> welcome on the GitHub repository: it is what makes the next version.
 
 ## What you get
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+| eedomus peripherals (usage)                                                | In Gladys                                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Lamp (on/off or dimmer)                                                    | a light: on/off, brightness                                   |
+| Electrical appliance, heating relay                                        | a switch (and its level when it has some)                     |
+| Pilot wire heating (Arrêt, Hors gel, Eco, Confort -2, Confort -1, Confort) | a pilot wire heater, every order                              |
+| Temperature setpoint, thermostat whose values are temperatures             | a thermostat setpoint                                         |
+| Shutter, shutters, opening centralisation                                  | a shutter: open, close, stop (when the box has one), position |
+| Alarm arming, other actuator, thermostat mode                              | a list of its values                                          |
+| Remote, wall switch (Interrupteur/Télécommande)                            | a button: every press is an event for your scenes             |
+| Motion, presence, opening, smoke, flood detectors                          | motion, opening, smoke and leak sensors                       |
+| Temperature, humidity, luminosity, pressure, CO₂, noise, rain, wind, UV    | the sensor of the right category                              |
+| Power, energy (Linky, plugs), voltage, current, water and gas meters       | power, energy index, voltage, current, volume                 |
+| Other indicators (day phase, messages…)                                    | a text, or a value with its unit                              |
+| Battery level of battery modules                                           | the battery level                                             |
 
-## Configuration
+Each eedomus peripheral makes **one Gladys device**, named after the
+peripheral and its room ("Lamp (Living room)"); its id, usage and parent module
+are kept in its parameters. A module with several channels (a motion sensor
+with its temperature and luminosity) makes one device per channel, so that each
+channel keeps its room.
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+The integration reads the **unit** of each value first: a peripheral left with
+the "Temperature" usage but measuring watts is offered as a power meter.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+## Requirements
 
-## Actions
+- An eedomus box (eedomus+ or eedomus) and its **API credentials**.
+- For the local connection: the Gladys machine reaches the box on the local
+  network (port 80). Otherwise, the eedomus cloud is used (internet access).
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+## Installation
 
-## Scenes
+1. Get your **API credentials**: on [secure.eedomus.com](https://secure.eedomus.com),
+   **Configuration → Mon compte → Identifiants API**. eedomus sends the API
+   user and the API secret by email. They are not the ones of your eedomus
+   account.
+2. Find the **IP address of the box** on your network (your internet router
+   lists the devices of your network), like `192.168.1.30`.
+3. In Gladys, open the integration, **Configuration**:
+   - **IP address of the eedomus box**: `192.168.1.30`. Leave it empty to go
+     through the eedomus cloud only.
+   - **API user** and **API secret**: paste them.
+4. Click **Test the connection**: the local API and the eedomus cloud are tried
+   one after the other, then the number of peripherals, rooms and devices
+   offered shows up.
+5. Open the **Discovery** tab and add the devices you want. Their values are
+   sent as soon as they are added.
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+## Options
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+- **Prefer the local connection** (a Gladys toggle): on by default. The
+  integration talks to the box on your network, and goes through the eedomus
+  cloud only when the box does not answer (the box is then tried again every
+  5 minutes). Turn it off to go through the cloud first, the box being the
+  fallback.
+- **Interval between two reads of the values**: 15 seconds by default (5 to
+  300). The values of all the devices you added are read in one request to the
+  box. Through the eedomus cloud, at most once a minute, to stay within the
+  cloud quotas.
 
-## Dashboard
+## Good to know
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+- **The box stays in charge of the modules**: Gladys sends its commands to the
+  box, which drives the Z-Wave, Zigbee, RF modules. Keep it running, with its
+  rules if you wish.
+- **The box is slow**: the integration sends one request at a time, never
+  closer than 0.6 s apart. A command shows up in Gladys within 2 seconds.
+- **Values, not events**: the values are read at the chosen interval, so a
+  motion lasting less than the interval may be missed. Lower the interval for
+  your motion sensors' sake, not below 5 seconds.
+- **Remotes and wall switches**: every new value is a press for your scenes
+  ("Simple appui" a click, "Double appui" a double click, "Appui long" a long
+  press…), even the same button twice in a row, as long as the presses are a
+  read apart.
+- **Lists of values**: a command always sends one of the values eedomus allows
+  for the peripheral: a dimmer whose list has 10 % steps goes to the nearest
+  step, a setpoint to the nearest temperature of its list.
+- **A new or renamed peripheral** shows up within 15 minutes, at once with the
+  **Scan** button of the Discovery tab.
+- **Transport badge**: "local" through the box, "cloud" through eedomus, with
+  an orange dot on the fallback way; "unreachable" when nothing answers, or
+  when the box itself has lost the module ("Non joignable" in eedomus).
+- **Door sensors**: eedomus says Fermé / Ouvert, Gladys 1 for closed and 0 for
+  open; the integration converts.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+| Status message                                 | What to do                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| eedomus refused the API credentials            | Check the API user and secret (Configuration → Mon compte → Identifiants API), not the account. |
+| The eedomus box (…) is unreachable             | Check its IP address, seen from the Gladys machine (not localhost). Is the box on?              |
+| Connected through the eedomus cloud: the box … | The box does not answer on the network: check its address; the cloud keeps things working.      |
+| The eedomus cloud is unreachable               | Check the internet access of the Gladys machine, or set the box address.                        |
+| eedomus answered with an error                 | The message of the box says why (an unknown peripheral, a value it does not allow…).            |
+
+The logs of the integration (Gladys, integration page) give the details. They
+never contain the API secret.
+
+## Privacy
+
+With the local connection, everything stays on your network: the integration
+only talks to your box. The eedomus cloud (api.eedomus.com) is used only when
+the box does not answer, or when you chose it. The API secret is stored as a
+secret by Gladys and never written to the logs.

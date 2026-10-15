@@ -1,76 +1,89 @@
 # CLAUDE.md
 
-Project rules for coding assistants (Claude Code reads this file) and for human
-contributors.
+Project rules for coding assistants (Claude Code reads this file) and for
+human contributors. Read **[TODO.md](./TODO.md) first**: status, decisions
+already taken and the next milestones.
 
 ## What this is
 
-A Gladys Assistant **external integration**: a Node.js service (Node 22+, ESM,
-no build step) that runs in its own sandboxed Docker container and talks to
-Gladys through
-[`@gladysassistant/integration-sdk`](https://github.com/GladysAssistant/integration-sdk-js),
-its only runtime dependency. It started from the official JavaScript template.
+A Gladys Assistant **external integration** of type `device`: a Node.js
+service (Node 22+, ESM, no build step) in its own sandboxed Docker container,
+talking to Gladys through `@gladysassistant/integration-sdk` (v0.15), its only
+runtime dependency. It reads the peripherals of the user's eedomus box through
+the eedomus API (the local API of the box, the eedomus cloud as the fallback),
+turns every peripheral into a Gladys device, reads their values at a steady
+pace and sends the Gladys commands back. Unofficial, not affiliated with
+Connected Object.
 
 ## Commands
 
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/mapping.test.js          # one file
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
+npm run audit                             # npm audit --omit=dev
 npx github:GladysAssistant/integration-store .   # store admission checks
 ```
 
-The CI (`.github/workflows/ci.yml`) runs `format:check`, `lint` and `test` on
-Node 22 and 24, and builds the Docker image: run the three commands before
-pushing.
+Run `format:check`, `lint`, `test` and `audit` before every commit.
 
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
-src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
-gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
-.github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
+index.js            SDK bootstrap only
+src/handlers.js     every SDK handler -> the app (shared with the tests)
+src/app.js          EedomusApp: connection, value reads, inventory reloads,
+                    states, presses, commands, transports, connection test
+src/eedomus.js      the only network access: GET <base>/<get|set>?action=…,
+                    the request queue, error kinds, the local/cloud fallback
+src/inventory.js    periph.list + value_list + caract -> peripherals (pure)
+src/mapping.js      one peripheral -> features, readers, writers (pure)
+src/devices.js      peripherals -> Gladys devices + routing tables (pure)
+src/publisher.js    states within the Gladys rate limit, presses apart
+src/config.js       config_schema normalized (box address, credentials)
+src/constants.js    manifest keys, limits, timings
+src/i18n.js         runtime texts (en/fr)
+test/fixtures/      the answers of a fictional box (made up, API shapes)
+test/helpers/       a fake eedomus box; Gladys is the SDK's fake
 ```
 
 ## Rules
 
-- **External ids are forever.** Build them with
-  `gladys.externalIds(type, platformId)`, `platformId` being the unique id the
-  platform gives the device (serial, cloud id, MAC), never a label. Gladys keys
-  devices, their history, scenes and dashboards on them: changing one creates a
-  new device and orphans the old one. The same goes for every key users store:
-  manifest `config_schema`, `actions`, widget and scene keys, feature keys.
-- **The container rootfs is read-only.** Write only under `/data`, the one
-  writable volume. Never log tokens, passwords or API keys.
-- **Versions belong to the Release workflow** (Actions → Release). Never edit
-  `version` in `package.json` or in the manifest, nor the `docker_image` tag,
-  by hand — except on the README's hand-pushed tag path, which bumps all three
-  together before tagging. `test/manifest.test.js` checks they agree.
-- **Changelog.** Every user-visible change adds a line under `## [Unreleased]`
-  in `CHANGELOG.md` (`### Added`, `Changed`, `Fixed`, `Removed`, `Security`).
-  Never write a version heading: the Release workflow moves the section, and it
-  becomes the notes of the GitHub Release.
-- **Manifest.** Texts are multi-language objects `{ "en": ..., "fr": ... }`:
-  `label`, `description` and `placeholder` alike, never a plain string. The
-  catalog `description` holds 10 to 100 characters per language. A field the
-  older cores do not know needs a higher `gladys_version` minimum
-  (`categories`: 4.86.0; `widgets`, `scene_triggers`, `scene_actions`,
-  `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
-  code (defaults, action, scene and widget handlers): change both sides
-  together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
-- **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
-  in English. Tests never touch the network.
+- **External ids are forever**: device = `eedomus:<periph_id>`, feature =
+  `<role>` (`binary`, `brightness`, `state`, `position`, `setpoint`,
+  `pilot-wire`, `selector`, `button`, `motion`, `opening`, `smoke`, `leak`,
+  `temperature`, `humidity`, `lux`, `power`, `energy`, `voltage`, `current`,
+  `pressure`, `co2`, `noise`, `rain`, `wind`, `volume`, `uv`, `value`, `text`,
+  `battery`). Never change how they are built.
+- The manifest keys (`test_connection`, the config keys) are frozen: users
+  store them. `GLADYS_PREFER_LOCAL` is the reserved key of the core's "Prefer
+  the local connection" toggle (both transports declared): never in the
+  `config_schema`.
+- Value conventions: the eedomus side is its value lists (strings: "0" off /
+  closed, "100" on / open, levels, "MY", with French or English
+  descriptions); the Gladys side the enums of `server/utils/constants.js`
+  (copied in `src/mapping.js`, the SDK does not export them). A command is
+  always one of the allowed values of a list (the box refuses any other with
+  error 6): writers pick the nearest one.
+- Remote presses go through `publisher.pushEvent` (publishStates): never
+  through `publishChangedStates`, which would drop a second identical press.
+  A press is a change of `last_value_change`, never read at the connection.
+- Never send a unit Gladys does not know (`unitOf` returns undefined): the
+  whole device list would be refused.
+- **The API secret travels in the query string**: never log or put in a
+  status a URL; `src/eedomus.js` errors carry no URL and the messages of the
+  box are cleaned of the secret.
+- **The box is slow**: one request at a time, 600 ms apart (it refuses closer
+  ones); keep the reads batched (`periph.caract` with comma-separated ids) and
+  never add a request per peripheral.
+- Container limits: 256 MB RAM, 0.5 CPU, read-only rootfs, only `/data`
+  writable, bridge network (unicast to the LAN only).
+- Gladys rate limits: 300 states/min, 300 scene events/min.
+- Tests never touch the network (`test/eedomus.test.js` uses a loopback server
+  for the transport).
+- Code, comments, README in English; `docs/en.md` and `docs/fr.md` kept in sync.
+- Every user-visible change adds a line under `## [Unreleased]` in
+  `CHANGELOG.md`; versions belong to the Release workflow.
