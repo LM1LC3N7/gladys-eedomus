@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-16
+
 ### Added
 
 - Connection to an eedomus box through its local API, with the API user and
@@ -34,3 +36,6 @@ the notes of the version's GitHub Release.
   when nothing answers or when the box cannot reach the peripheral.
 - "Test the connection" button: the local API and the cloud tried apart, then
   the peripherals, rooms and devices offered.
+
+[Unreleased]: https://github.com/LM1LC3N7/gladys-eedomus/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-eedomus/releases/tag/v0.1.1
