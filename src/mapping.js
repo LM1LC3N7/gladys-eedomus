@@ -393,6 +393,31 @@ const LABELS = {
 
 // --- The peripheral ---------------------------------------------------------------
 
+/**
+ * The options of a list of values, as the Gladys core accepts them. It refuses the
+ * WHOLE publication for one option with a blank label, a blank or padded value or a
+ * value seen twice, and all of it comes from the box: so an option without a usable
+ * value, or repeated, is left out, and one without a description is labelled with its
+ * value.
+ */
+export function selectOptions(values) {
+  const seen = new Set();
+  const options = [];
+  for (const v of values) {
+    const value = String(v.value);
+    if (value === '' || value !== value.trim() || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    options.push({
+      value,
+      label: cut(v.description, 100).trim() || value,
+      sort_order: options.length,
+    });
+  }
+  return options.slice(0, LIMITS.options);
+}
+
 class PeripheralMapper {
   /** @param {object} p one peripheral of src/inventory.js */
   constructor(p) {
@@ -650,11 +675,7 @@ class PeripheralMapper {
   /** The values of an actuator list, as a list of options. */
   selector() {
     const p = this.p;
-    const options = p.values.slice(0, LIMITS.options).map((v, i) => ({
-      value: v.value,
-      label: cut(v.description || v.value, 100),
-      sort_order: i,
-    }));
+    const options = selectOptions(p.values);
     this.add(
       'selector',
       this.name,

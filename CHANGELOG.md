@@ -10,6 +10,13 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A value of a list that the box describes with a blank text is labelled with its
+  value, and one that is blank, padded with spaces or repeated is left out, so
+  one odd option can no longer make Gladys refuse the whole publication and
+  leave Discovery empty.
+
 ### Changed
 
 - README: the store install note replaces the work-in-progress notice, and the
